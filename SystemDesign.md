@@ -25,10 +25,10 @@ This document must be followed consistently by all team members to avoid memory 
 ## Chosen Filter Length
 
 ```text
-M = 4
+M = 10
 ```
 
-## Reason for Choosing M = 4
+## Reason for Choosing M = 10
 
 The assignment must be completed in **4 days** by a **team of 3 members**, therefore implementation complexity must remain manageable while still maintaining acceptable filtering performance.
 
@@ -36,36 +36,35 @@ The following tradeoff analysis was considered:
 
 | M Value | Advantages | Disadvantages |
 |----------|-------------|----------------|
-| M = 3 | Very easy implementation | May appear overly simplified |
-| M = 4 | Good balance between complexity and filtering quality | Moderate matrix computation |
-| M = 5 | Better theoretical filtering | More difficult Gaussian elimination in MIPS |
+| M = 4 | Easy implementation, smaller matrix | Fewer coefficients, potentially lower filter quality |
+| M = 5 | Moderate complexity | Moderate matrix computation |
+| M = 10 | Maximum filter quality, M = N for full utilization of signal data | Larger 10×10 matrix, more complex Gaussian elimination |
 
-After evaluation, **M = 4** was selected because:
+After evaluation, **M = 10** was selected because:
 
-- Provides acceptable Wiener filter accuracy
-- Keeps Gaussian elimination manageable in MIPS assembly
-- Reduces debugging complexity
-- Suitable for a small team and limited timeline
-- Matrix size remains computationally practical (`4 × 4`)
+- Maximizes Wiener filter accuracy by utilizing all available signal samples
+- M = N allows the filter to fully exploit the input data
+- With partial pivoting in Gaussian elimination, the 10×10 system is numerically stable
+- Matrix size (`10 × 10`) remains computationally practical for MIPS FPU operations
 
 The following dimensions will be used:
 
 - Autocorrelation matrix:
 
 $begin:math:display$
-R\_M \\rightarrow 4 \\times 4
+R\_M \\rightarrow 10 \\times 10
 $end:math:display$
 
 - Cross-correlation vector:
 
 $begin:math:display$
-\\gamma\_d \\rightarrow 4 \\times 1
+\\gamma\_d \\rightarrow 10 \\times 1
 $end:math:display$
 
 - Wiener coefficients:
 
 $begin:math:display$
-h \\rightarrow 4 \\times 1
+h \\rightarrow 10 \\times 1
 $end:math:display$
 
 ---
@@ -136,15 +135,16 @@ input_size:             .word 0
 # FILTER CONFIGURATION
 # ==========================
 
-M_value:                .word 4
+M_value:                .word 10
 
 # ==========================
 # WIENER FILTER COMPONENTS
 # ==========================
 
-R_M:                    .space 64
-gamma_d:                .space 16
-optimize_coefficient:   .space 16
+autocorrelation:        .space 40
+R_M:                    .space 400
+gamma_d:                .space 40
+optimize_coefficient:   .space 40
 
 # ==========================
 # OUTPUT
@@ -157,7 +157,7 @@ mmse:                   .float 0.0
 # TEMPORARY STORAGE
 # ==========================
 
-augmented_matrix:       .space 80
+augmented_matrix:       .space 440
 
 # ==========================
 # FILE HANDLING
@@ -264,30 +264,18 @@ input_signal + (index × 4)
 
 # 7. Autocorrelation Matrix Storage (`R_M`)
 
-The Wiener filter requires a **4 × 4 autocorrelation matrix**.
+The Wiener filter requires a **10 × 10 autocorrelation matrix**.
 
 Instead of a true 2D matrix, MIPS stores matrices as a **flat row-major array**.
 
 Matrix structure:
 
-$begin:math:display$
-R\_M\=
-\\begin\{bmatrix\}
-r\(0\)\&r\(1\)\&r\(2\)\&r\(3\)\\\\
-r\(1\)\&r\(0\)\&r\(1\)\&r\(2\)\\\\
-r\(2\)\&r\(1\)\&r\(0\)\&r\(1\)\\\\
-r\(3\)\&r\(2\)\&r\(1\)\&r\(0\)
-\\end\{bmatrix\}
-$end:math:display$
+R_M is a 10 × 10 symmetric Toeplitz matrix where R_M[i][j] = autocorrelation[|i - j|].
 
 Memory representation:
 
-```text
-R_M[0]   R_M[1]   R_M[2]   R_M[3]
-R_M[4]   R_M[5]   R_M[6]   R_M[7]
-R_M[8]   R_M[9]   R_M[10]  R_M[11]
-R_M[12]  R_M[13]  R_M[14]  R_M[15]
-```
+Stored as a flat row-major array of 100 floats (400 bytes).
+Element R_M[i][j] is at flat index (i × 10 + j).
 
 ## Row-Major Index Formula
 
@@ -298,13 +286,13 @@ index = (row × M) + column
 Since:
 
 ```text
-M = 4
+M = 10
 ```
 
 Address formula:
 
 ```text
-memory_address = base + ((row × 4 + column) × 4)
+memory_address = base + ((row × 10 + column) × 4)
 ```
 
 ### Example
@@ -318,9 +306,9 @@ R_M[2][1]
 Calculation:
 
 ```text
-index = (2 × 4) + 1
-index = 9
-offset = 9 × 4 = 36 bytes
+index = (2 × 10) + 1
+index = 21
+offset = 21 × 4 = 84 bytes
 ```
 
 ## Augmented Matrix Storage
@@ -334,19 +322,19 @@ Gaussian elimination requires an augmented matrix:
 Since:
 
 ```text
-M = 4
+M = 10
 ```
 
 The augmented matrix dimensions become:
 
 ```text
-4 × 5
+10 × 11
 ```
 
 Memory allocation:
 
 ```assembly
-augmented_matrix: .space 80
+augmented_matrix: .space 440
 ```
 
 The matrix is stored using a flat row-major layout.
@@ -354,23 +342,23 @@ The matrix is stored using a flat row-major layout.
 Example memory representation:
 
 ```text
-Row 0 → [0][1][2][3][4]
-Row 1 → [5][6][7][8][9]
-Row 2 → [10][11][12][13][14]
-Row 3 → [15][16][17][18][19]
+Row 0  → [0][1][2]...[10]
+Row 1  → [11][12][13]...[21]
+...
+Row 9  → [99][100][101]...[109]
 ```
 
 ### Row-Major Index Formula
 
 ```text
-index = (row × 5) + column
+index = (row × 11) + column
 ```
 
 ### Address Formula
 
 ```text
 memory_address =
-base + ((row × 5 + column) × 4)
+base + ((row × 11 + column) × 4)
 ```
 
 ---
@@ -380,24 +368,28 @@ base + ((row × 5 + column) × 4)
 Stores:
 
 $begin:math:display$
-\\gamma\_d
+\gamma_d
 $end:math:display$
+
+For `M = 10`, the matrix is a 10×10 symmetric Toeplitz matrix where element R_M[i][j] = γxx(|i - j|).
 
 Vector structure:
 
 $begin:math:display$
-\\begin\{bmatrix\}
-\\gamma\(0\)\\\\
-\\gamma\(1\)\\\\
-\\gamma\(2\)\\\\
-\\gamma\(3\)
-\\end\{bmatrix\}
+\begin{bmatrix}
+\gamma(0)\\
+\gamma(1)\\
+\gamma(2)\\
+\gamma(3)\\
+...\\
+\gamma(9)
+\end{bmatrix}
 $end:math:display$
 
 Memory:
 
 ```text
-4 floats × 4 bytes = 16 bytes
+10 floats × 4 bytes = 40 bytes
 ```
 
 Addressing:
@@ -414,7 +406,7 @@ Stores Wiener coefficients:
 
 $begin:math:display$
 h\=
-\[h\_0\,h\_1\,h\_2\,h\_3\]
+\[h\_0\,h\_1\, \ldots \,h\_9\]
 $end:math:display$
 
 Memory:
@@ -426,7 +418,7 @@ optimize_coefficient + (index × 4)
 Storage size:
 
 ```text
-4 floats × 4 bytes = 16 bytes
+10 floats × 4 bytes = 40 bytes
 ```
 
 ---
@@ -476,11 +468,11 @@ mmse: .float 0.0
 To avoid implementation mismatch, all members must follow the following rules:
 
 1. Use exact variable names defined in this document.
-2. Use `M = 4`.
+2. Use `M = 10`.
 3. Store matrices using flat row-major layout.
 4. Use floating-point operations for all mathematical calculations.
 5. Use 4-byte offsets for float indexing.
-6. Use separate row-major indexing for R_M (4 × 4) and augmented_matrix (4 × 5).
+6. Use separate row-major indexing for R_M (10 × 10) and augmented_matrix (10 × 11).
 7. Do not modify memory allocation sizes without team agreement.
 
 This document acts as the standard architecture reference for the Wiener Filter implementation.

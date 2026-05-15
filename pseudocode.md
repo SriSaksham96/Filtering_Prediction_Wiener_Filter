@@ -16,7 +16,7 @@ The implementation follows:
 - Filter length:
 
 ```text
-M = 4
+M = 10
 ```
 
 - Signal length:
@@ -218,15 +218,8 @@ Construct the Toeplitz autocorrelation matrix.
 
 Matrix format:
 
-$begin:math:display$
-R\_M\=
-\\begin\{bmatrix\}
-r\(0\)\&r\(1\)\&r\(2\)\&r\(3\)\\\\
-r\(1\)\&r\(0\)\&r\(1\)\&r\(2\)\\\\
-r\(2\)\&r\(1\)\&r\(0\)\&r\(1\)\\\\
-r\(3\)\&r\(2\)\&r\(1\)\&r\(0\)
-\\end\{bmatrix\}
-$end:math:display$
+R_M is an M × M Toeplitz matrix where element R_M[i][j] = γxx(|i - j|).
+With M = 10, this is a 10 × 10 symmetric matrix.
 
 ## Logic
 
@@ -338,10 +331,10 @@ Construct:
 [R_M | gamma_d]
 ```
 
-For `M = 4`:
+For `M = 10`:
 
 ```text
-4 × 5 matrix
+10 × 11 matrix
 ```
 
 ## Augmented Matrix Indexing
@@ -349,7 +342,7 @@ For `M = 4`:
 Since the augmented matrix uses dimensions:
 
 ```text
-4 × 5
+10 × 11
 ```
 
 its row-major indexing differs from `R_M`.
@@ -357,14 +350,14 @@ its row-major indexing differs from `R_M`.
 Index formula:
 
 ```text
-index = (row × 5) + column
+index = (row × 11) + column
 ```
 
 Address calculation:
 
 ```text
 memory_address =
-base + ((row × 5 + column) × 4)
+base + ((row × 11 + column) × 4)
 ```
 
 ## Pseudocode
@@ -446,7 +439,7 @@ Goal:
 Solve coefficients:
 
 ```text
-h0 h1 h2 h3
+h0 h1 h2 h3 h4 h5 h6 h7 h8 h9
 ```
 
 ## Pseudocode
@@ -639,11 +632,11 @@ MARS syscall 2 prints floating-point values directly. If cleaner decimal formatt
 Since:
 
 ```text
-M = 4
+M = 10
 N = 10
 ```
 
-The computation remains manageable for MIPS implementation.
+The computation remains manageable for MIPS implementation, though the 10×10 Gaussian elimination requires careful handling.
 
 ---
 
@@ -654,7 +647,7 @@ The computation remains manageable for MIPS implementation.
 3. Use floating-point instructions for arithmetic.
 4. Maintain row-major indexing for matrices.
 5. Validate signal sizes before calculations.
-6. Keep `M = 4` fixed across all modules.
+6. Keep `M = 10` fixed across all modules (M equals signal length N).
 7. File parsing and float conversion should be implemented carefully, as file I/O is one of the most error-prone parts of MARS assembly programming.
 
 This pseudocode document acts as the primary implementation guide for coding the Wiener Filter in MIPS assembly.

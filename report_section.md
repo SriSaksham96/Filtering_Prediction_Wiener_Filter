@@ -79,21 +79,21 @@ The Wiener filter length determines how many previous signal samples are used du
 For this project:
 
 ```text
-M = 4
+M = 10
 ```
 
-The selection of `M = 4` was made after considering implementation complexity, debugging effort, and project timeline constraints.
+The selection of `M = 10` was made to maximize filtering performance by utilizing all available signal samples (M = N).
 
-Reasons for selecting `M = 4` include:
+Reasons for selecting `M = 10` include:
 
-- Balanced tradeoff between performance and implementation difficulty
-- Reduced complexity for Gaussian elimination
-- Easier debugging in MIPS assembly
-- Suitable for a 3-member team with a 4-day deadline
+- Maximum utilization of input signal data (M equals signal length N)
+- Best possible Wiener filter accuracy for the given signal
+- Partial pivoting in Gaussian elimination ensures numerical stability for 10×10 matrices
+- MIPS FPU coprocessor handles the computation efficiently
 
 Thus, the Wiener filter coefficient vector becomes:
 
-h=[h_0,h_1,h_2,h_3]
+h=[h_0,h_1,...,h_9]
 
 ---
 
@@ -118,7 +118,7 @@ Where:
 For this assignment:
 
 ```text
-k = 0 to 3
+k = 0 to 9
 ```
 
 The calculated autocorrelation values are used to construct a Toeplitz matrix.
@@ -131,9 +131,7 @@ The Wiener filter requires an autocorrelation matrix represented as:
 
 R_M
 
-For `M = 4`, the matrix structure becomes:
-
-R_M=\begin{bmatrix}r(0)&r(1)&r(2)&r(3)\\r(1)&r(0)&r(1)&r(2)\\r(2)&r(1)&r(0)&r(1)\\r(3)&r(2)&r(1)&r(0)\end{bmatrix}
+For `M = 10`, the matrix is a 10×10 symmetric Toeplitz matrix where R_M[i][j] = γxx(|i - j|).
 
 This matrix is called a **Toeplitz matrix**, meaning each diagonal contains identical values.
 
@@ -159,9 +157,7 @@ Where:
 - `x(n)` = noisy signal  
 - `γdx(k)` = cross-correlation value  
 
-For `M = 4`, the vector becomes:
-
-\gamma_d=\begin{bmatrix}\gamma(0)\\gamma(1)\\gamma(2)\\gamma(3)\end{bmatrix}
+For `M = 10`, the vector γd contains 10 elements: γdx(0) through γdx(9).
 
 This vector represents the relationship between the desired signal and noisy input signal.
 
@@ -211,7 +207,7 @@ The process consists of:
 
 The final result is the optimized Wiener filter coefficients:
 
-h=[h_0,h_1,h_2,h_3]
+h=[h_0,h_1,...,h_9]
 
 Gaussian elimination was selected because it is more feasible for MIPS implementation and avoids expensive matrix inversion operations.
 
@@ -270,4 +266,4 @@ In this assignment, the Wiener filter is implemented using:
 - Gaussian elimination
 - MMSE minimization
 
-The implementation is optimized for MIPS assembly by using a manageable filter size (`M = 4`) and simplified MMSE computation while maintaining mathematical correctness.
+The implementation is optimized for MIPS assembly by using a filter size of `M = 10` (equal to the signal length N) and simplified MMSE computation while maintaining mathematical correctness.
